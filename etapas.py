@@ -1,9 +1,14 @@
 """
-Etapas del pipeline de análisis de ventas.
-Código portado VERBATIM del notebook PROanalisispower.
-Únicos cambios: cada celda envuelta en una función, el nombre del archivo
-principal parametrizado, y exit() -> raise SystemExit(1) (equivalente).
-La lógica de negocio NO fue modificada.
+Etapas del pipeline de análisis de ventas — v2 (incluye CONSTRUYE ALIANZA).
+Código portado del notebook PROanalisispower actualizado.
+Cambios respecto al notebook:
+  1. Cada celda envuelta en una función; archivo principal parametrizado;
+     exit() -> raise SystemExit(1) (plomería, sin efecto en la lógica).
+  2. FIX acordado: dos comas faltantes en clientes_a_prefijar (Paso 5):
+     - entre 'JUAN ALBERTO REINA OLAYA' y 'CONSTRUCIONES BARINAS'
+     - entre 'CONSTRUYE ALIANZA CA' y 'CONSTRUYE ALIANZA., C.A.'
+     Sin estas comas, Python concatenaba los strings y esos clientes
+     nunca recibían el prefijo '.'.
 """
 import pandas as pd  # noqa: F401 (las funciones re-importan igual que el notebook)
 
@@ -71,7 +76,9 @@ def etapa_1_a_4(archivo_principal):
         'HIERRO EL ROBLE CCS, C.A.': 'CARACAS',
         'HIERRO METALES EL ROBLE, C.A.': 'MARACAY',
         'HIERROS PORTUGUESA, C.A.': 'PORTUGUESA',
-        'FERRETERIA PUNTO DEL HIERRO, C.A.': 'BARCELONA'
+        'FERRETERIA PUNTO DEL HIERRO, C.A.': 'BARCELONA',
+        'CONSTRUYE ALIANZA, C.A.': 'CONSTALIANZA'
+    
     }
     df_empresas['EMP'] = df_empresas['EMP'].replace(mapa_empresas)
     print("✅ Nombres de empresas sustituidos.")
@@ -187,10 +194,15 @@ def etapa_5():
         'FERRETERIA PUNTO DEL HIERRO, C.A.',
         'FERRETERIA PUNTO DEL HIERRO, C.A',
         'CARLOS ANDRES ACEVEDO TOBO',
-        'JUAN ALBERTO REINA OLAYA'
+        'JUAN ALBERTO REINA OLAYA',  # FIX: coma agregada
         'CONSTRUCIONES BARINAS',
         'EL PUNTO DEL HIERRO BARINAS., C.A',
-        'EL PUNTO DEL HIERRO BARINAS, C.A'
+        'EL PUNTO DEL HIERRO BARINAS, C.A',
+        'CONSTRUYE ALIANZA, C.A.',
+        'CONSTRUYE ALIANZA C.A.',
+        'CONSTRUYE ALIANZA, CA',
+        'CONSTRUYE ALIANZA CA',  # FIX: coma agregada
+        'CONSTRUYE ALIANZA., C.A.',
     ]
 
     def add_dot_if_matches(name):
@@ -301,7 +313,8 @@ def etapa_6():
         'CARACAS': 'CCS',
         'MARACAY': 'MCY',
         'PORTUGUESA': 'PORT',
-        'BARCELONA': 'BLN'
+        'BARCELONA': 'BLN',
+        'CONSTALIANZA': 'CONSTALIANZA'
     }
 
     def get_emp_abbr(val) -> str:
@@ -989,7 +1002,8 @@ def etapa_tipo_venta_cashea():
         '.HIERRO EL ROBLE CCS, C.A.',
         '.HIERRO METALES EL ROBLE, C.A.',
         '.HIERROS PORTUGUESA, C.A.',
-        '.JUAN ALBERTO REINA OLAYA'
+        '.JUAN ALBERTO REINA OLAYA',
+        '.CONSTRUYE ALIANZA, C.A.'
     }
 
     vendedores_excluir_netas = {
