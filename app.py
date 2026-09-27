@@ -12,7 +12,8 @@ Etapas:
   6    → Construcción de CU (clave única)          → resultado_paso_6.xlsx
   7    → Unificación DESCRIP/FAM (DESCRIP_UNICAS)🔍→ resultado_paso_7.xlsx
   8-9  → Tasas PAR y BCV (TASAS.xlsx)              → resultado_pasos_8_y_9.xlsx
-  10-13→ Consolidación final (TOTAL FACT)          → Analisis_Consolidado_Final.xlsx
+  7.1  → Estandarización IGTF (2024/2025 → 0)     → (dentro de resultado_paso_7.xlsx)
+  10-13→ Consolidación final (TOTAL FACT + MONEDA) → Analisis_Consolidado_Final.xlsx
   CASHEA → Tipo de venta SOCIOS/NETAS/CASHEA       → ..._con_tipo_venta.xlsx
   DEF  → COSTO X CANT, negativos DEV, reorden      → Analisis_Final_DEF.xlsx
 
@@ -44,11 +45,11 @@ PIPELINE = [
      ["resultado_pasos_1_a_4.xlsx", "CLIENTES_UNICOS.xlsx"], "resultado_paso_5.xlsx"),
     ("p6",     "Paso 6 — Clave única (CU)",                "etapa_6",
      ["resultado_paso_5.xlsx"],                           "resultado_paso_6.xlsx"),
-    ("p7",     "Paso 7 — Unificación DESCRIP/FAM 🔍",      "etapa_7",
+    ("p7",     "Paso 7 — Unificación DESCRIP/FAM + IGTF 🔍",      "etapa_7",
      ["resultado_paso_6.xlsx", "DESCRIP_UNICAS.xlsx"],    "resultado_paso_7.xlsx"),
     ("p8_9",   "Pasos 8 y 9 — Tasas PAR / BCV",            "etapa_8_y_9",
      ["resultado_paso_7.xlsx", "TASAS.xlsx"],             "resultado_pasos_8_y_9.xlsx"),
-    ("p10_13", "Pasos 10 a 13 — Consolidación final",      "etapa_10_a_13",
+    ("p10_13", "Pasos 10 a 13 — Consolidación + MONEDA",      "etapa_10_a_13",
      ["resultado_pasos_8_y_9.xlsx"],                      "Analisis_Consolidado_Final.xlsx"),
     ("cashea", "Tipo de venta (SOCIOS/NETAS/CASHEA)",      "etapa_tipo_venta_cashea",
      ["Analisis_Consolidado_Final.xlsx"],                 "Analisis_Consolidado_Final_con_tipo_venta.xlsx"),
@@ -398,5 +399,14 @@ with tab_resultados:
             df_final = df_de("Analisis_Final_DEF.xlsx")
             st.caption(f"{len(df_final):,} filas × {len(df_final.columns)} columnas — mostrando primeras 200")
             st.dataframe(df_final.head(200), use_container_width=True, height=420)
-            if "TIPO DE VENTA" in df_final.columns:
-                st.bar_chart(df_final["TIPO DE VENTA"].value_counts())
+            g1, g2 = st.columns(2)
+            with g1:
+                if "TIPO DE VENTA" in df_final.columns:
+                    st.markdown("**Líneas por TIPO DE VENTA**")
+                    st.bar_chart(df_final["TIPO DE VENTA"].value_counts())
+            with g2:
+                if "MONEDA" in df_final.columns and "CU" in df_final.columns:
+                    # MONEDA se propaga a todas las líneas: contar por factura (filas -A)
+                    facturas = df_final[df_final["CU"].astype(str).str.endswith("-A")]
+                    st.markdown("**Facturas por MONEDA**")
+                    st.bar_chart(facturas["MONEDA"].value_counts())

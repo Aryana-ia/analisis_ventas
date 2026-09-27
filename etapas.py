@@ -1,16 +1,19 @@
 """
-Etapas del pipeline de análisis de ventas — v2 (incluye CONSTRUYE ALIANZA).
-Código portado del notebook PROanalisispower actualizado.
-Cambios respecto al notebook:
-  1. Cada celda envuelta en una función; archivo principal parametrizado;
-     exit() -> raise SystemExit(1) (plomería, sin efecto en la lógica).
-  2. FIX acordado: dos comas faltantes en clientes_a_prefijar (Paso 5):
-     - entre 'JUAN ALBERTO REINA OLAYA' y 'CONSTRUCIONES BARINAS'
-     - entre 'CONSTRUYE ALIANZA CA' y 'CONSTRUYE ALIANZA., C.A.'
-     Sin estas comas, Python concatenaba los strings y esos clientes
-     nunca recibían el prefijo '.'.
+Etapas del pipeline de análisis de ventas — v3.
+Código portado del notebook PROanalisispower (versión con IGTF y MONEDA).
+
+Cambios de plomería respecto al notebook (sin efecto en la lógica):
+  - Cada celda envuelta en una función.
+  - Nombre del listado principal parametrizado (etapa_1_a_4(archivo_principal)).
+  - exit() -> raise SystemExit(1).
+
+Historial funcional:
+  v2: incorpora CONSTRUYE ALIANZA (CONSTALIANZA) + fix de comas en Paso 5.
+  v3: Paso 7.1  -> estandarización IGTF (se crea en 0 tras RETENCION si falta, archivos 2024/2025).
+      Paso 10-13 -> columna MONEDA (BS / USD / MIXTO / SIN PAGO) por factura.
+      DEF       -> MONEDA agregada a ORDEN_FINAL para que no se descarte.
 """
-import pandas as pd  # noqa: F401 (las funciones re-importan igual que el notebook)
+import pandas as pd  # noqa: F401
 
 
 def etapa_1_a_4(archivo_principal):
@@ -77,8 +80,7 @@ def etapa_1_a_4(archivo_principal):
         'HIERRO METALES EL ROBLE, C.A.': 'MARACAY',
         'HIERROS PORTUGUESA, C.A.': 'PORTUGUESA',
         'FERRETERIA PUNTO DEL HIERRO, C.A.': 'BARCELONA',
-        'CONSTRUYE ALIANZA, C.A.': 'CONSTALIANZA'
-    
+        'CONSTRUYE ALIANZA, C.A': 'CONSTALIANZA'
     }
     df_empresas['EMP'] = df_empresas['EMP'].replace(mapa_empresas)
     print("✅ Nombres de empresas sustituidos.")
@@ -185,24 +187,24 @@ def etapa_5():
     clientes_a_prefijar = [
         'ACEROS DE VALENCIA, C.A',
         'ACEROS DE VALENCIA, C.A.',
+        'ACEROS DE VALENCIA, CA',
         'EL PUNTO DEL HIERRO, C.A.',
         'EL PUNTO DEL HIERRO C.A',
         'FERREACEVAL, C.A.',
+        'FERREACEVAL, C.A. ',
         'HIERRO EL ROBLE CCS, C.A.',
         'HIERRO METALES EL ROBLE, C.A.',
         'HIERROS PORTUGUESA, C.A.',
         'FERRETERIA PUNTO DEL HIERRO, C.A.',
         'FERRETERIA PUNTO DEL HIERRO, C.A',
         'CARLOS ANDRES ACEVEDO TOBO',
-        'JUAN ALBERTO REINA OLAYA',  # FIX: coma agregada
+        'JUAN ALBERTO REINA OLAYA',
         'CONSTRUCIONES BARINAS',
         'EL PUNTO DEL HIERRO BARINAS., C.A',
         'EL PUNTO DEL HIERRO BARINAS, C.A',
+        'CONSTRUYE ALIANZA, C.A',
         'CONSTRUYE ALIANZA, C.A.',
-        'CONSTRUYE ALIANZA C.A.',
-        'CONSTRUYE ALIANZA, CA',
-        'CONSTRUYE ALIANZA CA',  # FIX: coma agregada
-        'CONSTRUYE ALIANZA., C.A.',
+        'CONSTRUYE ALIANZA C.A.'
     ]
 
     def add_dot_if_matches(name):
@@ -582,6 +584,7 @@ def etapa_7():
         df_descr_unicas = df_descr_unicas.rename(columns={
             'DESCRIP': 'DESCRIP_NUEVA',
             'FAM': 'FAM_NUEVA'
+       
         })
 
         # Merge seguro
@@ -597,6 +600,7 @@ def etapa_7():
         # Columna de control
         hay_descr = df_empresas['DESCRIP_NUEVA'].notna() if 'DESCRIP_NUEVA' in df_empresas.columns else False
         hay_fam = df_empresas['FAM_NUEVA'].notna() if 'FAM_NUEVA' in df_empresas.columns else False
+  
         df_empresas['CAMBIO_EJECUTADO'] = np.where(hay_descr | hay_fam, 'SI', 'NO')
 
         filas_a_actualizar = df_empresas['CAMBIO_EJECUTADO'] == 'SI'
@@ -606,6 +610,7 @@ def etapa_7():
             df_empresas['DESCRIP'] = pd.NA
         if 'FAM' not in df_empresas.columns:
             df_empresas['FAM'] = pd.NA
+    
 
         df_empresas.loc[filas_a_actualizar & df_empresas['DESCRIP_NUEVA'].notna(), 'DESCRIP'] = \
             df_empresas.loc[filas_a_actualizar & df_empresas['DESCRIP_NUEVA'].notna(), 'DESCRIP_NUEVA']
@@ -613,12 +618,14 @@ def etapa_7():
         df_empresas.loc[filas_a_actualizar & df_empresas['FAM_NUEVA'].notna(), 'FAM'] = \
             df_empresas.loc[filas_a_actualizar & df_empresas['FAM_NUEVA'].notna(), 'FAM_NUEVA']
 
+    
+
         # Eliminar auxiliares
         df_empresas.drop(columns=['DESCRIP_NUEVA', 'FAM_NUEVA'], inplace=True)
 
-        # Reordenar CAMBIO_EJECUTADO junto a FAM
+        # Reordenar CAMBIO_EJECUTADO junto a FAM y TIPO         
         lista_columnas = df_empresas.columns.tolist()
-        if 'CAMBIO_EJECUTADO' in lista_columnas and 'FAM' in lista_columnas:
+        if 'CAMBIO_EJECUTADO' in lista_columnas and 'FAM' in lista_columnas and 'TIPO' in lista_columnas:
             lista_columnas.remove('CAMBIO_EJECUTADO')
             pos_fam = lista_columnas.index('FAM')
             lista_columnas.insert(pos_fam + 1, 'CAMBIO_EJECUTADO')
@@ -641,6 +648,22 @@ def etapa_7():
             ['nan', 'NaN', 'None', '<NA>', ''],
             pd.NA
         )
+
+    # --- PASO 7.1: Estandarización de la columna IGTF (NUEVO) ---
+    # Los listados 2024/2025 no traen IGTF; los de 2026 la traen después de RETENCION.
+    # Para que Power BI y todos los análisis reciban siempre la misma estructura,
+    # si falta se crea con valor 0 en la misma posición que en 2026.
+    print("\n--- PASO 7.1: Verificando columna 'IGTF' ---")
+    if 'IGTF' in df_empresas.columns:
+        print("✅ La columna 'IGTF' ya existe (formato 2026). No se modifica.")
+    else:
+        if 'RETENCION' in df_empresas.columns:
+            pos_igtf = df_empresas.columns.get_loc('RETENCION') + 1
+            df_empresas.insert(pos_igtf, 'IGTF', 0.0)
+            print("✅ 'IGTF' no existía (formato 2024/2025): creada con valor 0 después de 'RETENCION'.")
+        else:
+            df_empresas['IGTF'] = 0.0
+            print("⚠️ 'IGTF' creada con valor 0, pero no se encontró 'RETENCION': se agregó al final.")
 
     # --- GUARDADO ---
     print("\n--- GUARDADO DE PROGRESO: Creando archivo Excel para el Paso 7 ---")
@@ -861,7 +884,7 @@ def etapa_10_a_13():
             'FACTAFECT', 'CAJAFECTADA', 'SALDOPENDIENT', 'DOLAREFECTCONT', 'DOLAEXTCONT',
             'BSEFECTCONT', 'OTROSBSCONT', 'ANTICIPOCON', 'DOLAREFECTCRED',
             'DOLAREXTCRED', 'BSEFECTCRED', 'OTROSBSCRED', 'ANTICIPOCXC',
-            'CONTADO', 'CREDITO', 'IVA', 'RETENCION', 'DESCUENTO'
+            'CONTADO', 'CREDITO', 'IVA', 'RETENCION', 'IGTF', 'DESCUENTO'
         ]
 
         columnas_a_consolidar = [col for col in columnas_pago if col in df_empresas.columns]
@@ -923,6 +946,55 @@ def etapa_10_a_13():
         )
         df_total_A['TOTAL FACT'] = pd.to_numeric(df_total_A['TOTAL FACT'], errors='coerce').fillna(0)
         df_empresas.loc[es_fila_principal, 'TOTAL FACT'] = df_total_A['TOTAL FACT'].values
+
+        # 7) MONEDA de pago por factura (NUEVO)
+        #    Criterio (valores > 0 en las columnas de pago consolidadas de la factura):
+        #      - Solo columnas BS              -> 'BS'
+        #      - Solo columnas DOLAR/ANTICIPO  -> 'USD'
+        #      - Ambos grupos                  -> 'MIXTO'
+        #      - Ninguna columna > 0           -> 'SIN PAGO' (ej.: crédito pendiente, DEV)
+        #    Se calcula sobre resumen_max (los mismos valores que recibe la fila -A) y se
+        #    propaga a TODAS las líneas de la factura: es un atributo, no un monto, así que
+        #    no genera doble conteo y permite filtrar por moneda a nivel de producto.
+        print("\n🔄 Calculando columna 'MONEDA' (BS / USD / MIXTO)...")
+        COLS_MONEDA_BS = ['BSEFECTCONT', 'OTROSBSCONT', 'BSEFECTCRED', 'OTROSBSCRED']
+        COLS_MONEDA_USD = [
+            'DOLAREFECTCONT', 'DOLAEXTCONT', 'DOLAREFECTCRED', 'DOLAREXTCRED',
+            'ANTICIPOCON', 'ANTICIPOCXC'
+        ]
+        ETIQUETA_SIN_PAGO = 'SIN PAGO'
+
+        cols_bs = [c for c in COLS_MONEDA_BS if c in resumen_max.columns]
+        cols_usd = [c for c in COLS_MONEDA_USD if c in resumen_max.columns]
+        faltan_moneda = [c for c in COLS_MONEDA_BS + COLS_MONEDA_USD if c not in cols_bs + cols_usd]
+        if faltan_moneda:
+            print(f"   ⚠️ Columnas de pago no encontradas (se ignoran para MONEDA): {faltan_moneda}")
+
+        sin_cols = pd.Series(False, index=resumen_max.index)
+        hay_bs = (resumen_max[cols_bs] > 0).any(axis=1) if cols_bs else sin_cols
+        hay_usd = (resumen_max[cols_usd] > 0).any(axis=1) if cols_usd else sin_cols
+
+        moneda_por_factura = pd.Series(
+            np.select(
+                [hay_bs & hay_usd, hay_bs, hay_usd],
+                ['MIXTO', 'BS', 'USD'],
+                default=ETIQUETA_SIN_PAGO
+            ),
+            index=resumen_max.index
+        )
+        df_empresas['MONEDA'] = df_empresas['CU_BASE'].map(moneda_por_factura).fillna(ETIQUETA_SIN_PAGO)
+
+        # Ubicar MONEDA justo después de la última columna de pago
+        if 'ANTICIPOCXC' in df_empresas.columns:
+            cols_orden = df_empresas.columns.tolist()
+            cols_orden.remove('MONEDA')
+            cols_orden.insert(cols_orden.index('ANTICIPOCXC') + 1, 'MONEDA')
+            df_empresas = df_empresas[cols_orden]
+
+        print("   - Facturas por MONEDA:")
+        for etiqueta, cantidad in moneda_por_factura.value_counts().items():
+            print(f"       {etiqueta}: {cantidad}")
+        print("✅ Columna 'MONEDA' creada.")
 
         # Eliminar temporal
         df_empresas.drop(columns=['CU_BASE'], inplace=True)
@@ -1003,7 +1075,7 @@ def etapa_tipo_venta_cashea():
         '.HIERRO METALES EL ROBLE, C.A.',
         '.HIERROS PORTUGUESA, C.A.',
         '.JUAN ALBERTO REINA OLAYA',
-        '.CONSTRUYE ALIANZA, C.A.'
+        '.CONSTRUYE ALIANZA, C.A'
     }
 
     vendedores_excluir_netas = {
@@ -1044,6 +1116,17 @@ def etapa_tipo_venta_cashea():
     df.to_excel(archivo_salida, index=False, sheet_name='Analisis_Final')
     print(f"\n✅ Archivo guardado: '{archivo_salida}'")
     print("--- FIN ---")
+
+
+    '''with pd.ExcelWriter(
+        archivo_salida,
+        engine='xlsxwriter',
+        engine_kwargs={'options': {'use_zip64': True, 'constant_memory': True}}
+    ) as writer:
+        df.to_excel(writer, index=False, sheet_name='Analisis_Final')
+
+    print(f"\n✅ Archivo guardado: '{archivo_salida}'")
+    print("--- FIN ---")'''
 
 def etapa_transformacion_final():
     import pandas as pd
@@ -1164,6 +1247,7 @@ def etapa_transformacion_final():
         "CREDITO",
         "IVA",
         "RETENCION",
+        "IGTF",
         "PESO",
         "TOTALPESO",
         "PRECIOXKILO",
@@ -1183,6 +1267,7 @@ def etapa_transformacion_final():
         "BSEFECTCRED",
         "OTROSBSCRED",
         "ANTICIPOCXC",
+        "MONEDA",
         "MARCA",
         "TONINICIAL",
         "TONFINAL",
